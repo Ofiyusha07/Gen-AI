@@ -1,0 +1,123 @@
+let brain;
+let points = [];
+let state = "collection"; 
+let currentPrediction = "";
+let currentConfidence = 0; // Added to store the confidence score
+
+function setup() {
+  createCanvas(500, 500);
+  ml5.setBackend('webgl');
+  
+  // SOLUTION TASK 1: The XOR Problem
+  // Added a hidden 'relu' layer to allow non-linear decision boundaries
+  let options = {
+    inputs: 2,
+    outputs: 2,
+    task: 'classification',
+    layers: [
+{ type: 'dense', units: 2, activation: 'relu' }, 
+      { type: 'dense', units: 2, activation: 'softmax' }
+    ],
+    debug: true 
+  };
+  brain = ml5.neuralNetwork(options);
+}
+
+function draw() {
+  // Default background while collecting data
+  background(240);
+
+  if (state === "prediction") {
+    // SOLUTION TASK 2: The Confidence Heatmap
+    // Map the confidence score (0.5 to 1.0) to an opacity value (0 to 255)
+    let opacity = map(currentConfidence, 0.5, 1.0, 0, 255);
+    
+    // Apply the opacity to the background color
+    if (currentPrediction === "Red") {
+      background(255, 0, 0, opacity); 
+    } else if (currentPrediction === "Blue") {
+      background(0, 0, 255, opacity); 
+    }
+    
+    // Draw the Prediction and Confidence text
+    textAlign(CENTER, CENTER);
+    textSize(40);
+    fill(0);
+    text("AI SEES: " + currentPrediction, width / 2, 50);
+    
+    textSize(20);
+    // Multiply by 100 and fix to 1 decimal point for readability
+    text("Confidence: " + (currentConfidence * 100).toFixed(1) + "%", width / 2, 90);
+  }
+
+  // Draw all collected data points
+  for (let p of points) {
+    fill(p.label === "Red" ? "red" : "blue");
+    stroke(255);
+    strokeWeight(2);
+    circle(p.x, p.y, 16);
+  }
+  
+  // Draw the UI instructions in the corner
+  textAlign(LEFT, BASELINE);
+  textSize(14);
+  fill(0);
+  noStroke();
+  text(`Current State: ${state}`, 10, 20);
+  text(`Data Points: ${points.length}`, 10, 40);
+  text(`Controls: 'R' for Red | 'B' for Blue | 'T' to Train`, 10, 480);
+}
+
+function keyPressed() {
+  if (state === "collection") {
+    if (key.toUpperCase() === 'R') {
+      brain.addData([mouseX, mouseY], ["Red"]);
+      points.push({ x: mouseX, y: mouseY, label: "Red" });
+    } else if (key.toUpperCase() === 'B') {
+      brain.addData([mouseX, mouseY], ["Blue"]);
+      points.push({ x: mouseX, y: mouseY, label: "Blue" });
+    } else if (key.toUpperCase() === 'T') {
+      startTraining();
+    }
+  }
+}
+
+function startTraining() {
+  state = "training";
+  brain.normalizeData();
+  
+  // SOLUTION TASK 3: Memorizing Noise (Overfitting)
+  // Change epochs from 50 to 500 to watch the model overfit around "spy" dots
+  let trainingOptions = {
+    epochs: 500 
+  };
+  
+  brain.train(trainingOptions, finishedTraining);
+}
+
+function finishedTraining() {
+  console.log("Model is trained! Starting continuous predictions...");
+  state = "prediction";
+  classifyMouse(); // Kick off the continuous inference loop
+}
+
+function classifyMouse() {
+  if (state === "prediction") {
+    brain.classify([mouseX, mouseY], handleResults);
+  }
+}
+
+// Fixed ml5.js v1.0+ callback structure (results first, error second)
+function handleResults(results, error) {
+  if (error) {
+    console.error(error);
+    return;
+  }
+  
+  // Update the global variables for the draw() loop
+  currentPrediction = results[0].label;
+  currentConfidence = results[0].confidence; 
+  
+  // Call recursively for a smooth loop
+  classifyMouse(); 
+}
