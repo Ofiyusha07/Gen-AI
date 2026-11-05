@@ -1,0 +1,1 @@
+In this experiment, I tested two different learning rates: 2.0 and 0.0001. When the learning rate was 2.0, the model made very large weight updates, which could cause the loss graph to fluctuate and become unstable. When I changed the learning rate to 0.0001, the model learned much more slowly because the weight updates were very small.
